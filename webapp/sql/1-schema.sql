@@ -138,8 +138,8 @@ CREATE TABLE coupons
 DROP TABLE IF EXISTS distances;
 CREATE TABLE distances
 (
-  chairs_id      VARCHAR(26) NOT NULL COMMENT '所有しているユーザーのID',
+  chair_id      VARCHAR(26) NOT NULL COMMENT '所有しているユーザーのID',
   total_distance INTEGER     NOT NULL,
   total_distance_updated_at  DATETIME(6)  NOT NULL,
-  PRIMARY KEY (chairs_id)
+  PRIMARY KEY (chair_id)
 );

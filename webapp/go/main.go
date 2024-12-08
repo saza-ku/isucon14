@@ -24,7 +24,7 @@ import (
 var db *sqlx.DB
 var distanceWorker *util.Worker[string]
 
-const distanceWorkerInterval = 3 * time.Second
+const distanceWorkerInterval = 2500 * time.Millisecond
 
 func main() {
 	mux := setup()
@@ -72,8 +72,10 @@ func setup() http.Handler {
 	}
 	db = _db
 
+	fmt.Println("initialize: distanceWorker: start")
 	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
-	distanceWorker.Run(distanceWorkerRunFunc)
+	go distanceWorker.Run(distanceWorkerRunFunc)
+	fmt.Println("initialize: distanceWorker: running")
 
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
@@ -139,9 +141,12 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("postInitialize: %v\n", req)
 	distanceWorker.Close()
+	fmt.Println("initialize: distanceWorker: closed")
 	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
-	distanceWorker.Run(distanceWorkerRunFunc)
+	go distanceWorker.Run(distanceWorkerRunFunc)
+	fmt.Println("initialize: distanceWorker: running")
 
 	if out, err := exec.Command("../sql/init.sh").CombinedOutput(); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to initialize: %s: %w", string(out), err))
@@ -169,6 +174,12 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	chairIDs := []string{}
+	if err := db.SelectContext(ctx, &chairIDs, "SELECT DISTINCT chair_id FROM chair_locations"); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+	}
+	distanceWorkerRunFunc(chairIDs)
+
 	measure.CallSetup(8080)
 
 	writeJSON(w, http.StatusOK, postInitializeResponse{Language: "go"})
@@ -180,8 +191,8 @@ type Coordinate struct {
 }
 
 type Distance struct {
-	ChairID               string    `db:"chairs_id"`
-	TotalDistance         int       `db:"total_distance"`
+	ChairID                string    `db:"chairs_id"`
+	TotalDistance          int       `db:"total_distance"`
 	TotalDistanceUpdatedAt time.Time `db:"total_distance_updated_at"`
 }
 
@@ -223,6 +234,7 @@ func secureRandomStr(b int) string {
 }
 
 func distanceWorkerRunFunc(chairIDs []string) {
+	fmt.Printf("distanceWorkerRunFunc: %v\n", chairIDs)
 	ctx := context.Background()
 	distances := make([]Distance, 0, len(chairIDs))
 	query := `
