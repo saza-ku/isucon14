@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-sql-driver/mysql"
+	"github.com/isucon/isucon14/webapp/go/util/measure"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -104,6 +105,8 @@ func setup() http.Handler {
 		authedMux.HandleFunc("POST /api/chair/rides/{ride_id}/status", chairPostRideStatus)
 	}
 
+	measure.PrepareMeasure(mux)
+
 	// internal handlers
 	{
 		mux.HandleFunc("GET /api/internal/matching", internalGetMatching)
@@ -137,6 +140,8 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	measure.CallSetup(8080)
 
 	writeJSON(w, http.StatusOK, postInitializeResponse{Language: "go"})
 }

@@ -4,7 +4,6 @@ go 1.23
 
 require (
 	github.com/cespare/xxhash v1.1.0
-	github.com/felixge/fgprof v0.9.5
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-sql-driver/mysql v1.8.1
@@ -14,6 +13,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/labstack/echo/v4 v4.13.0
 	github.com/oklog/ulid/v2 v2.1.0
+	github.com/riandyrn/otelchi v0.11.0
 	github.com/rs/xid v1.6.0
 	github.com/sony/sonyflake v1.2.0
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.2
@@ -42,7 +42,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.22.1 // indirect
-	github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.23.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
