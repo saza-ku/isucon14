@@ -8,7 +8,7 @@
 - [X] ~~*ローカルの /etc/hosts を書き換える（書式に気を付ける）*~~ [2024-12-08]
 - [X] ~~*ssh できることを確認して `make init` を叩く*~~ [2024-12-08]
 - [X] ~~*sed.go の `TODO: settings` となっているところを全て埋めて `make prepare` を叩く*~~ [2024-12-08]
-- [ ] init したやつの書き換え
+- [X] ~~*init したやつの書き換え*~~ [2024-12-08]
   - [X] ~~*nginx.conf を編集し、ltsv で解析できるようにする（[このようにする](https://github.com/Nagarei/isucon11-qualify-test/commit/b7e8f2667677831490d8e5966251633c14944015)）*~~ [2024-12-08]
     ```
         log_format ltsv "time:$time_local"
@@ -58,9 +58,9 @@
     	measure.CallSetup(port)
     ```
       - 複数台構成を見越してリバプロではなく app サーバーに直接飛ばす
-- [ ] OpenTelemtryの計装（一旦これをする前に `make fulldeploy` して計測を行なっておくのが良い）
-  - [ ] `measure.NewIsuconDB`を使ってDBのコネクションを得る（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/babc2a253e526e5bd24b20784a58969291659ee2)）
-  - [ ] `context.Context`を引き回して、DBアクセスや外部API呼び出しに追加する（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/d1c16d395488fb36ff2d4d7358b936955a5a4a4b)）
+- [X] ~~*OpenTelemtryの計装（一旦これをする前に `make fulldeploy` して計測を行なっておくのが良い）*~~ [2024-12-08]
+  - [X] ~~*`measure.NewIsuconDB`を使ってDBのコネクションを得る（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/babc2a253e526e5bd24b20784a58969291659ee2)）*~~ [2024-12-08]
+  - [X] ~~*`context.Context`を引き回して、DBアクセスや外部API呼び出しに追加する（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/d1c16d395488fb36ff2d4d7358b936955a5a4a4b)）*~~ [2024-12-08]
 - [ ] `make fulldeploy` でデプロイする
 
 > [!NOTE]
