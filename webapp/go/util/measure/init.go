@@ -29,7 +29,7 @@ func PrepareMeasure(r *chi.Mux) {
 
 func CallSetup(port int) {
 	go func() {
-		for i := 1; i <= 1; i++ {
+		for i := 1; i <= 3; i++ {
 			r, err := http.Post(fmt.Sprintf("http://isucon%d:%d/setup", i, port), "application/json", nil)
 			if err != nil {
 				fmt.Printf("failed to call setup: isucon%d: %s\n", i, err)
