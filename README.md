@@ -2,9 +2,9 @@
 
 ### /etc/hosts
 ```
-<PLACEHOLDER_ISUCON1_IP> isucon1
-<PLACEHOLDER_ISUCON2_IP> isucon2
-<PLACEHOLDER_ISUCON3_IP> isucon3
+18.177.189.17 isucon1
+52.194.49.98  isucon2
+54.92.69.133  isucon3
 ```
 
 ### SSH forwarding for netdata

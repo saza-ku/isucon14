@@ -11,16 +11,16 @@ import (
 // TODO: settings
 var (
 	vars = map[string]string{
-		"GITHUB_TOKEN":     "",
-		"GITHUB_REPO":      "",
-		"ISUCON1_IP":       "",
-		"ISUCON2_IP":       "",
-		"ISUCON3_IP":       "",
-		"MYSQL_USER":       "", // root
-		"MYSQL_PASS":       "", // root
-		"MYSQL_DBNAME":     "",
-		"APP_NAME":         "", // binary file name of app
-		"APP_SERVICE_NAME": "",
+		"GITHUB_TOKEN":     "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",
+		"GITHUB_REPO":      "saza-ku/isucon14",
+		"ISUCON1_IP":       "192.168.0.11",
+		"ISUCON2_IP":       "192.168.0.12",
+		"ISUCON3_IP":       "192.168.0.13",
+		"MYSQL_USER":       "isucon", // root
+		"MYSQL_PASS":       "isucon", // root
+		"MYSQL_DBNAME":     "isuride",
+		"APP_NAME":         "isuride", // binary file name of app
+		"APP_SERVICE_NAME": "isuride-go.service",
 	}
 
 	urlMatchingGroupsList = []string{
