@@ -35,7 +35,7 @@ TO=`date +%s%N | cut -b1-13`
 mkdir -p ~/results/$DATE
 
 # Slow query log
-sudo mysqldumpslow -s t /var/log/mysql/slow.log | head -n 30 > ~/results/$DATE/mysql-slow-origin.log
+sudo mysqldumpslow -s t /var/log/mysql/slow.log | head -n 60 > ~/results/$DATE/mysql-slow-origin.log
 cut -c -500 ~/results/$DATE/mysql-slow-origin.log > ~/results/$DATE/mysql-slow.log
 
 # MySQL explain
