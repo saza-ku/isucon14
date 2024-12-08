@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	crand "crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,6 +22,9 @@ import (
 )
 
 var db *sqlx.DB
+var distanceWorker *util.Worker[string]
+
+const distanceWorkerInterval = 3 * time.Second
 
 func main() {
 	mux := setup()
@@ -66,6 +71,9 @@ func setup() http.Handler {
 		panic(err)
 	}
 	db = _db
+
+	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
+	distanceWorker.Run(distanceWorkerRunFunc)
 
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
@@ -131,6 +139,10 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	distanceWorker.Close()
+	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
+	distanceWorker.Run(distanceWorkerRunFunc)
+
 	if out, err := exec.Command("../sql/init.sh").CombinedOutput(); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to initialize: %s: %w", string(out), err))
 		return
@@ -165,6 +177,12 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 type Coordinate struct {
 	Latitude  int `json:"latitude"`
 	Longitude int `json:"longitude"`
+}
+
+type Distance struct {
+	ChairID               string    `db:"chairs_id"`
+	TotalDistance         int       `db:"total_distance"`
+	TotalDistanceUpdatedAt time.Time `db:"total_distance_updated_at"`
 }
 
 func bindJSON(r *http.Request, v interface{}) error {
@@ -202,4 +220,46 @@ func secureRandomStr(b int) string {
 		panic(err)
 	}
 	return fmt.Sprintf("%x", k)
+}
+
+func distanceWorkerRunFunc(chairIDs []string) {
+	ctx := context.Background()
+	distances := make([]Distance, 0, len(chairIDs))
+	query := `
+		SELECT chair_id,
+				SUM(IFNULL(distance, 0)) AS total_distance,
+				MAX(created_at)          AS total_distance_updated_at
+		FROM (SELECT chair_id,
+					created_at,
+					ABS(latitude - LAG(latitude) OVER (PARTITION BY chair_id ORDER BY created_at)) +
+					ABS(longitude - LAG(longitude) OVER (PARTITION BY chair_id ORDER BY created_at)) AS distance
+				FROM chair_locations) tmp
+		WHERE chair_id IN (?)
+		GROUP BY chair_id
+	`
+	query, params, err := sqlx.In(query, chairIDs)
+	if err != nil {
+		slog.Error("failed to update total_distance: %s", "error", err)
+		return
+	}
+	tx, err := db.Beginx()
+	defer tx.Rollback()
+	if err := tx.SelectContext(ctx, &distances, query, params...); err != nil {
+		slog.Error("failed to update total_distance", "error", err)
+		return
+	}
+
+	upsertQuery := `
+		INSERT INTO distances (chair_id, total_distance, total_distance_updated_at)
+		VALUES (:chair_id, :total_distance, :total_distance_updated_at)
+		ON DUPLICATE KEY UPDATE
+			total_distance = VALUES(total_distance),
+			total_distance_updated_at = VALUES(total_distance_updated_at)
+	`
+	if _, err := tx.NamedExecContext(ctx, upsertQuery, distances); err != nil {
+		slog.Error("failed to upsert distances", "error", err)
+		return
+	}
+
+	tx.Commit()
 }
