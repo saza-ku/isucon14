@@ -121,7 +121,6 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("distanceWorker.Send: %s\n", chair.ID)
 	distanceWorker.Send(chair.ID)
 
 	location := &ChairLocation{}

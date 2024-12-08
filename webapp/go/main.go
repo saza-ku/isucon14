@@ -72,10 +72,8 @@ func setup() http.Handler {
 	}
 	db = _db
 
-	fmt.Println("initialize: distanceWorker: start")
 	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
 	go distanceWorker.Run(distanceWorkerRunFunc)
-	fmt.Println("initialize: distanceWorker: running")
 
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
@@ -141,12 +139,9 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("postInitialize: %v\n", req)
 	distanceWorker.Close()
-	fmt.Println("initialize: distanceWorker: closed")
 	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
 	go distanceWorker.Run(distanceWorkerRunFunc)
-	fmt.Println("initialize: distanceWorker: running")
 
 	if out, err := exec.Command("../sql/init.sh").CombinedOutput(); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to initialize: %s: %w", string(out), err))
@@ -234,7 +229,6 @@ func secureRandomStr(b int) string {
 }
 
 func distanceWorkerRunFunc(chairIDs []string) {
-	fmt.Printf("distanceWorkerRunFunc: %v\n", chairIDs)
 	ctx := context.Background()
 	distances := make([]Distance, 0, len(chairIDs))
 	query := `
