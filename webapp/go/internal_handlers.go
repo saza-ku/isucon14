@@ -75,6 +75,7 @@ func assignChairToRide() {
 		}
 		return
 	}
+	fmt.Println("ride: ", ride.ID)
 
 	coordinate := Coordinate{
 		Latitude:  ride.PickupLatitude,
