@@ -714,7 +714,7 @@ func appGetNotification(w http.ResponseWriter, r *http.Request) {
 	if err := tx.GetContext(ctx, ride, `SELECT * FROM rides WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`, user.ID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusOK, &appGetNotificationResponse{
-				RetryAfterMs: 3000,
+				RetryAfterMs: 100,
 			})
 			return
 		}
@@ -761,7 +761,7 @@ func appGetNotification(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: ride.CreatedAt.UnixMilli(),
 			UpdateAt:  ride.UpdatedAt.UnixMilli(),
 		},
-		RetryAfterMs: 3000,
+		RetryAfterMs: 100,
 	}
 
 	if ride.ChairID.Valid {
@@ -881,7 +881,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("latitude or longitude is empty"))
 		return
 	}
-	fmt.Printf("nearby: %s, %s, %s\n", latStr, lonStr, distanceStr)
+	fmt.Printf("nearby: %s %s, %s\n", latStr, lonStr, distanceStr)
 
 	lat, err := strconv.Atoi(latStr)
 	if err != nil {
@@ -904,12 +904,37 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	coordinate := Coordinate{Latitude: lat, Longitude: lon}
-
-	tx, err := db.Beginx()
+	nearbyChairs, chairsForCache, err := getNearbyChairs(ctx, db, Coordinate{Latitude: lat, Longitude: lon}, distance)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	coordinate := Coordinate{Latitude: lat, Longitude: lon}
+
+	setChairCacheForMatching(coordinate, chairsForCache)
+
+	retrievedAt := &time.Time{}
+	err = db.GetContext(
+		ctx,
+		retrievedAt,
+		`SELECT CURRENT_TIMESTAMP(6)`,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, &appGetNearbyChairsResponse{
+		Chairs:      nearbyChairs,
+		RetrievedAt: retrievedAt.UnixMilli(),
+	})
+}
+
+func getNearbyChairs(ctx context.Context, db *sqlx.DB, coordinate Coordinate, distance int) ([]appGetNearbyChairsResponseChair, []Chair, error) {
+	tx, err := db.Beginx()
+	if err != nil {
+		return nil, nil, err
 	}
 	defer tx.Rollback()
 
@@ -920,8 +945,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		`SELECT * FROM chairs`,
 	)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
+		return nil, nil, err
 	}
 
 	nearbyChairs := []appGetNearbyChairsResponseChair{}
@@ -933,8 +957,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 
 		rides := []*Ride{}
 		if err := tx.SelectContext(ctx, &rides, `SELECT * FROM rides WHERE chair_id = ? ORDER BY created_at DESC`, chair.ID); err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
+			return nil, nil, err
 		}
 
 		skip := false
@@ -944,8 +967,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		}
 		statuses, err := getLatestRideStatuses(ctx, tx, rideIDs, false)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
+			return nil, nil, err
 		}
 		for _, ride := range rides {
 			// 過去にライドが存在し、かつ、それが完了していない場合はスキップ
@@ -974,8 +996,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
-			writeError(w, http.StatusInternalServerError, err)
-			return
+			return nil, nil, err
 		}
 
 		if calculateDistance(coordinate.Latitude, coordinate.Longitude, chairLocation.Latitude, chairLocation.Longitude) <= distance {
@@ -993,23 +1014,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	setChairCacheForMatching(coordinate, chairsForCache)
-
-	retrievedAt := &time.Time{}
-	err = tx.GetContext(
-		ctx,
-		retrievedAt,
-		`SELECT CURRENT_TIMESTAMP(6)`,
-	)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, &appGetNearbyChairsResponse{
-		Chairs:      nearbyChairs,
-		RetrievedAt: retrievedAt.UnixMilli(),
-	})
+	return nearbyChairs, chairsForCache, nil
 }
 
 var masterChairModels = map[string]ChairModel{
@@ -1071,6 +1076,7 @@ var masterChairModels = map[string]ChairModel{
 }
 
 func setChairCacheForMatching(coordinate Coordinate, chairs []Chair) error {
+	chairWithSpeeds := []*ChairWithSpeed{}
 	for _, chair := range chairs {
 		if chair.IsActive {
 			c := ChairWithSpeed{
@@ -1083,10 +1089,12 @@ func setChairCacheForMatching(coordinate Coordinate, chairs []Chair) error {
 				c.Speed = 0
 			}
 
-			PushChairForMatching(coordinate, &c)
+			chairWithSpeeds = append(chairWithSpeeds, &c)
 		}
-
 	}
+
+	setNearbyChairs(coordinate, chairWithSpeeds)
+
 	return nil
 }
 

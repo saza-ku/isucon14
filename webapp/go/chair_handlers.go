@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -87,10 +88,6 @@ func chairPostActivity(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
-	}
-
-	if !req.IsActive {
-		DeleteChairForMatching(chair.ID)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -237,7 +234,7 @@ func chairGetNotification(w http.ResponseWriter, r *http.Request) {
 	if err := tx.GetContext(ctx, ride, `SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1`, chair.ID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusOK, &chairGetNotificationResponse{
-				RetryAfterMs: 3000,
+				RetryAfterMs: 100,
 			})
 			return
 		}
@@ -280,6 +277,18 @@ func chairGetNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if status == "COMPLETED" {
+		go func() {
+			for {
+				time.Sleep(100 * time.Millisecond)
+				_, err := db.ExecContext(ctx, "UPDATE chairs SET is_empty = TRUE WHERE id = ?", chair.ID)
+				if err == nil {
+					break
+				}
+			}
+		}()
+	}
+
 	writeJSON(w, http.StatusOK, &chairGetNotificationResponse{
 		Data: &chairGetNotificationResponseData{
 			RideID: ride.ID,
@@ -297,7 +306,7 @@ func chairGetNotification(w http.ResponseWriter, r *http.Request) {
 			},
 			Status: status,
 		},
-		RetryAfterMs: 3000,
+		RetryAfterMs: 100,
 	})
 }
 

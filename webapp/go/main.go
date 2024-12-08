@@ -25,11 +25,19 @@ var db *sqlx.DB
 var distanceWorker *util.Worker[string]
 var chairPostCoordinateWorker *util.Worker[chairPostCoordinateItem]
 
-const distanceWorkerInterval = 3000 * time.Millisecond
+const distanceWorkerInterval = 30 * time.Millisecond
 const chairPostCoordinateWorkerInterval = 3000 * time.Millisecond
 
 func main() {
 	mux := setup()
+
+	go func() {
+		for {
+			time.Sleep(100 * time.Millisecond)
+			assignChairToRide()
+		}
+	}()
+
 	slog.Info("Listening on :8080")
 	http.ListenAndServe(":8080", mux)
 }
@@ -176,12 +184,9 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	chairsForMatchingMu1.Lock()
-	chairsForMatchingMu2.Lock()
-	chairsForMatching1 = map[string]*ChairWithSpeed{}
-	chairsForMatching2 = map[string]*ChairWithSpeed{}
-	chairsForMatchingMu1.Unlock()
-	chairsForMatchingMu2.Unlock()
+	nearbyChairsCacheMu.Lock()
+	defer nearbyChairsCacheMu.Unlock()
+	nearbyChairsCache = make(map[string][]*ChairWithSpeed)
 
 	chairIDs := []string{}
 	if err := db.SelectContext(ctx, &chairIDs, "SELECT DISTINCT chair_id FROM chair_locations"); err != nil {
