@@ -60,7 +60,7 @@ func setup() http.Handler {
 	dbConfig.DBName = dbname
 	dbConfig.ParseTime = true
 
-	_db, err := sqlx.Connect("mysql", dbConfig.FormatDSN())
+	_db, err := measure.NewIsuconDB(dbConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -69,6 +69,7 @@ func setup() http.Handler {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
 	mux.Use(middleware.Recoverer)
+	measure.PrepareMeasure(mux)
 	mux.HandleFunc("POST /api/initialize", postInitialize)
 
 	// app handlers
@@ -104,8 +105,6 @@ func setup() http.Handler {
 		authedMux.HandleFunc("GET /api/chair/notification", chairGetNotification)
 		authedMux.HandleFunc("POST /api/chair/rides/{ride_id}/status", chairPostRideStatus)
 	}
-
-	measure.PrepareMeasure(mux)
 
 	// internal handlers
 	{
