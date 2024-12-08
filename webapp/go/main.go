@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-sql-driver/mysql"
+	"github.com/isucon/isucon14/webapp/go/util"
 	"github.com/isucon/isucon14/webapp/go/util/measure"
 	"github.com/jmoiron/sqlx"
 )
@@ -141,6 +142,9 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	measure.CallSetup(8080)
+	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_created_at ON ride_statuses (ride_id ASC, created_at DESC)")
+	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_chair_sent_at_created_at ON ride_statuses (ride_id, chair_sent_at, created_at)")
+	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_app_sent_at_created_at ON ride_statuses (ride_id, app_sent_at, created_at)")
 
 	writeJSON(w, http.StatusOK, postInitializeResponse{Language: "go"})
 }
