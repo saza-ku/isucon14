@@ -62,9 +62,9 @@ myisam-recover-options  = BACKUP
 log_error = /var/log/mysql/error.log
 #
 # Here you can see queries with especially long duration
-slow_query_log_file    = /var/log/mysql/slow.log
-slow_query_log         = 1
-long_query_time        = 0
+#slow_query_log_file    = /var/log/mysql/slow.log
+slow_query_log         = 0
+#long_query_time        = 0
 
 innodb_flush_log_at_trx_commit = 2
 disable-log-bin = 1

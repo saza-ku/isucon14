@@ -17,7 +17,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-sql-driver/mysql"
 	"github.com/isucon/isucon14/webapp/go/util"
-	"github.com/isucon/isucon14/webapp/go/util/measure"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -68,7 +67,7 @@ func setup() http.Handler {
 	dbConfig.DBName = dbname
 	dbConfig.ParseTime = true
 
-	_db, err := measure.NewIsuconDB(dbConfig)
+	_db, err := util.NewIsuconDB(dbConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +81,6 @@ func setup() http.Handler {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
 	mux.Use(middleware.Recoverer)
-	measure.PrepareMeasure(mux)
 	mux.HandleFunc("POST /api/initialize", postInitialize)
 
 	// app handlers
@@ -181,8 +179,6 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 	}
 	distanceWorkerRunFunc(chairIDs)
-
-	measure.CallSetup(8080)
 
 	writeJSON(w, http.StatusOK, postInitializeResponse{Language: "go"})
 }
