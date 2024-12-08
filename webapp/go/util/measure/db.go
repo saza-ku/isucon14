@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"util"
+
 	"github.com/go-sql-driver/mysql"
-	"github.com/isucon/isucon12-qualify/webapp/go/util"
 	"github.com/jmoiron/sqlx"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 )

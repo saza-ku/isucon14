@@ -46,9 +46,9 @@ prepare:
 .PHONY: log
 log:
 	mkdir -p logs
-	ssh isucon@isucon1 "sudo journalctl -u <PLACEHOLDER_APP_SERVICE_NAME> -r | sed -n '/isucon-log-delimiter/q;p' | tac" > logs/isucon1.log
-	ssh isucon@isucon2 "sudo journalctl -u <PLACEHOLDER_APP_SERVICE_NAME> -r | sed -n '/isucon-log-delimiter/q;p' | tac" > logs/isucon2.log
-	ssh isucon@isucon3 "sudo journalctl -u <PLACEHOLDER_APP_SERVICE_NAME> -r | sed -n '/isucon-log-delimiter/q;p' | tac" > logs/isucon3.log
+	ssh isucon@isucon1 "sudo journalctl -u isuride-go.service -r | sed -n '/isucon-log-delimiter/q;p' | tac" > logs/isucon1.log
+	ssh isucon@isucon2 "sudo journalctl -u isuride-go.service -r | sed -n '/isucon-log-delimiter/q;p' | tac" > logs/isucon2.log
+	ssh isucon@isucon3 "sudo journalctl -u isuride-go.service -r | sed -n '/isucon-log-delimiter/q;p' | tac" > logs/isucon3.log
 
 .PHONY: enable-measure
 enable-measure:

@@ -1,12 +1,12 @@
 # 計測自動化の準備
 
 ## 事前
-- [ ] GitHub のトークンを発行しセット
-- [ ] あらかじめ ssh-keygen -R isucon1 isucon2 isucon3 を叩いておく
+- [X] ~~*GitHub のトークンを発行しセット*~~ [2024-12-08]
+- [X] ~~*あらかじめ ssh-keygen -R isucon1 isucon2 isucon3 を叩いておく*~~ [2024-12-08]
 
 ## 開始後
-- [ ] ローカルの /etc/hosts を書き換える（書式に気を付ける）
-- [ ] ssh できることを確認して `make init` を叩く
+- [X] ~~*ローカルの /etc/hosts を書き換える（書式に気を付ける）*~~ [2024-12-08]
+- [X] ~~*ssh できることを確認して `make init` を叩く*~~ [2024-12-08]
 - [ ] sed.go の `TODO: settings` となっているところを全て埋めて `make prepare` を叩く
 - [ ] init したやつの書き換え
   - [ ] nginx.conf を編集し、ltsv で解析できるようにする（[このようにする](https://github.com/Nagarei/isucon11-qualify-test/commit/b7e8f2667677831490d8e5966251633c14944015)）
@@ -44,9 +44,9 @@
     ```
   - [ ] /etc/hosts に isucon1, isucon2, isucon3, eren を追加（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/f17751cb2feab558d51f0da46dc5058b9116935e)）
     ```
-    <PLACEHOLDER_ISUCON1_IP> isucon1
-    <PLACEHOLDER_ISUCON2_IP> isucon2
-    <PLACEHOLDER_ISUCON3_IP> isucon3
+    192.168.0.11 isucon1
+    192.168.0.12 isucon2
+    192.168.0.13 isucon3
     27.133.154.192 eren
     ```
   - [ ] main関数内で`measure.PrepareMeasure`を呼び出す（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/83f4adf21a2dfea1b0d8901f5ffc403f7b2ca2fe#diff-871eb89e86e63e7eca84f0075cba1a75574a11341cd89d39c7891864d2b085b9R251)）
