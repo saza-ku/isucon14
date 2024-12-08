@@ -277,7 +277,8 @@ func chairGetNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(ride.ID + ": " + status)
+	// fmt.Println(ride.ID + ": " + status)
+	fmt.Printf("%s %s: %s\n", chair.ID, ride.ID, status)
 	if status == "COMPLETED" {
 		go func() {
 			for {
