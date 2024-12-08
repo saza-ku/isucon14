@@ -20,4 +20,6 @@ matching_groups:
 - /api/chair/notification
 - /api/chair/rides/*/status
 - /api/internal/matching
+- /images/*
+- /assets/*
 
