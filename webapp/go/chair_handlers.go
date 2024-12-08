@@ -121,6 +121,8 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	distanceWorker.Send(chair.ID)
+
 	location := &ChairLocation{}
 	if err := tx.GetContext(ctx, location, `SELECT * FROM chair_locations WHERE id = ?`, chairLocationID); err != nil {
 		writeError(w, http.StatusInternalServerError, err)

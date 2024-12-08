@@ -9,6 +9,7 @@ import (
 type Worker[T any] struct {
 	ch       chan T
 	interval time.Duration
+	done     chan struct{}
 }
 
 func NewWorker[T any](interval time.Duration) *Worker[T] {
@@ -17,12 +18,18 @@ func NewWorker[T any](interval time.Duration) *Worker[T] {
 		// ISUCONなら良いが、業務ではあまりやらないほうが良い
 		ch:       make(chan T, 100000),
 		interval: interval,
+		done:     make(chan struct{}),
 	}
 }
 
 // Send はworkerにitemを送信します。
 func (w *Worker[T]) Send(item T) {
 	w.ch <- item
+}
+
+// Close はworkerを停止します。
+func (w *Worker[T]) Close() {
+	close(w.done)
 }
 
 // Run はworkerを起動します。
@@ -50,6 +57,10 @@ func (w *Worker[T]) Run(fun func([]T)) {
 			items = []T{}
 		case item := <-w.ch:
 			items = append(items, item)
+		case <-w.done:
+			return
 		}
 	}
 }
+
+

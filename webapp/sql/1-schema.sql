@@ -134,3 +134,12 @@ CREATE TABLE coupons
   PRIMARY KEY (user_id, code)
 )
   COMMENT 'クーポンテーブル';
+
+DROP TABLE IF EXISTS distances;
+CREATE TABLE distances
+(
+  chair_id      VARCHAR(26) NOT NULL COMMENT '所有しているユーザーのID',
+  total_distance INTEGER     NOT NULL,
+  total_distance_updated_at  DATETIME(6)  NOT NULL,
+  PRIMARY KEY (chair_id)
+);
