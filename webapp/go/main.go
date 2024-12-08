@@ -141,11 +141,21 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	queries := []string{
+		"ALTER TABLE chairs ADD INDEX owner_id_idx (owner_id)",
+		"CREATE INDEX idx_ride_statuses_ride_id_created_at ON ride_statuses (ride_id ASC, created_at DESC)",
+		"CREATE INDEX idx_ride_statuses_ride_id_chair_sent_at_created_at ON ride_statuses (ride_id, chair_sent_at, created_at)",
+		"CREATE INDEX idx_ride_statuses_ride_id_app_sent_at_created_at ON ride_statuses (ride_id, app_sent_at, created_at)",
+		"CREATE INDEX chair_locations_chair_id_created_at ON chair_locations (chair_id ASC, created_at DESC)",
+	}
+	for _, q := range queries {
+		if err := util.CreateIndexIfNotExists(db, q); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
 	measure.CallSetup(8080)
-	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_created_at ON ride_statuses (ride_id ASC, created_at DESC)")
-	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_chair_sent_at_created_at ON ride_statuses (ride_id, chair_sent_at, created_at)")
-	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_app_sent_at_created_at ON ride_statuses (ride_id, app_sent_at, created_at)")
-	util.CreateIndexIfNotExists(db, "CREATE INDEX chair_locations_chair_id_created_at ON chair_locations (chair_id ASC, created_at DESC)")
 
 	writeJSON(w, http.StatusOK, postInitializeResponse{Language: "go"})
 }

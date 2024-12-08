@@ -61,7 +61,7 @@
 - [X] ~~*OpenTelemtryの計装（一旦これをする前に `make fulldeploy` して計測を行なっておくのが良い）*~~ [2024-12-08]
   - [X] ~~*`measure.NewIsuconDB`を使ってDBのコネクションを得る（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/babc2a253e526e5bd24b20784a58969291659ee2)）*~~ [2024-12-08]
   - [X] ~~*`context.Context`を引き回して、DBアクセスや外部API呼び出しに追加する（[このようにする](https://github.com/saza-ku/isucon11q-2024/commit/d1c16d395488fb36ff2d4d7358b936955a5a4a4b)）*~~ [2024-12-08]
-- [ ] `make fulldeploy` でデプロイする
+- [X] ~~*`make fulldeploy` でデプロイする*~~ [2024-12-08]
 
 > [!NOTE]
 > もしアプリケーションがコンテナ化されていた場合は[webappがコンテナ化されているときにしなければならないこと](https://github.com/saza-ku/isucon-template/wiki/webapp%E3%81%8C%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%8C%96%E3%81%95%E3%82%8C%E3%81%A6%E3%81%84%E3%82%8B%E3%81%A8%E3%81%8D%E3%81%AB%E3%81%97%E3%81%AA%E3%81%91%E3%82%8C%E3%81%B0%E3%81%AA%E3%82%89%E3%81%AA%E3%81%84%E3%81%93%E3%81%A8)を見る。
