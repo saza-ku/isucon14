@@ -25,8 +25,8 @@ var db *sqlx.DB
 var distanceWorker *util.Worker[string]
 var chairPostCoordinateWorker *util.Worker[chairPostCoordinateItem]
 
-const distanceWorkerInterval = 2000 * time.Millisecond
-const chairPostCoordinateWorkerInterval = 2000 * time.Millisecond
+const distanceWorkerInterval = 3000 * time.Millisecond
+const chairPostCoordinateWorkerInterval = 3000 * time.Millisecond
 
 func main() {
 	mux := setup()
