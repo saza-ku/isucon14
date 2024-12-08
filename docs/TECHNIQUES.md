@@ -21,12 +21,12 @@
 
 
 #### mysql
-- [ ] innodb_flush_log_at_trx_commit = 2 にする (または 0)
-- [ ] disable-log-bin = 1, disable-log-bin を設定する
+- [X] ~~*innodb_flush_log_at_trx_commit = 2 にする (または 0)*~~ [2024-12-08]
+- [X] ~~*disable-log-bin = 1, disable-log-bin を設定する*~~ [2024-12-08]
   - mysql8 では bin log がデフォルトで出るようになってるので注意
-- [ ] innodb_buffer_pool_size をいい感じにする (総メモリの 80% ぐらい)
-- [ ] innodb_flush_method をいい感じにする (O_DIRECT?)
-- [ ] max_connections をいい感じにする (Too many connections error が出てるかみる) (systemd で LimitNOFILE もいじる)
+- [X] ~~*innodb_buffer_pool_size をいい感じにする (総メモリの 80% ぐらい)*~~ [2024-12-08]
+- [X] ~~*innodb_flush_method をいい感じにする (O_DIRECT?)*~~ [2024-12-08]
+- [X] ~~*max_connections をいい感じにする (Too many connections error が出てるかみる) (systemd で LimitNOFILE もいじる)*~~ [2024-12-08]
 
 #### OS（だいたい[ここ](https://gist.github.com/south37/d4a5a8158f49e067237c17d13ecab12a#頻出カーネルパラメータ設定)に載ってる）
 - [ ] net.core.somaxconn をでかくする

@@ -4,7 +4,7 @@ reverse: true
 query_string: false
 output: "count,method,uri,min,max,sum,avg,p99"
 matching_groups:
-  - /api/chair/rides/.+/evaluation
+  - /api/app/rides/.+/evaluation
   - /api/chair/rides/.+/status
   - /images/.+
   - /assets/.+
