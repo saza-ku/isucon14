@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -469,6 +471,7 @@ func appPostRides(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	appGetNotificationPush(rideID, "MATCHING")
 
 	writeJSON(w, http.StatusAccepted, &appPostRidesResponse{
 		RideID: rideID,
@@ -662,6 +665,7 @@ func appPostRideEvaluatation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	appGetNotificationPush(rideID, "COMPLETED")
 
 	writeJSON(w, http.StatusOK, &appPostRideEvaluationResponse{
 		CompletedAt: ride.UpdatedAt.UnixMilli(),
@@ -696,8 +700,11 @@ type appGetNotificationResponseChairStats struct {
 	TotalEvaluationAvg float64 `json:"total_evaluation_avg"`
 }
 
+var appGetNotificationPollingIDs map[string][]chan RideStatus // rideID -> chan RideStatus
+
 func appGetNotification(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	flusher := w.(http.Flusher)
 	user := ctx.Value("user").(*User)
 
 	tx, err := db.Beginx()
@@ -783,7 +790,7 @@ func appGetNotification(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if yetSentRideStatus.ID != "" {
-		_, err := tx.ExecContext(ctx, `UPDATE ride_statuses SET app_sent_at = CURRENT_TIMESTAMP(6) WHERE id = ?`, yetSentRideStatus.ID)
+		_, err := tx.ExecContext(ctx, `UPDATE ride_statuses SET app_sent_at = CURRENT_TIMESTAMP(6) WHERE id = ?`, yetSentRideStatus.ID) // app_sent_at
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -795,7 +802,71 @@ func appGetNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, response)
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	if err := appGetNotificationSendResponse(w, flusher, *response.Data); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	ch := make(chan RideStatus)
+	if _, ok := appGetNotificationPollingIDs[ride.ID]; !ok {
+		appGetNotificationPollingIDs[ride.ID] = []chan RideStatus{}
+	}
+	appGetNotificationPollingIDs[ride.ID] = append(appGetNotificationPollingIDs[ride.ID], ch)
+
+	for {
+		select {
+		case newresp := <-ch:
+			if err := appGetNotificationSendResponse(w, flusher, appGetNotificationResponseData{
+				RideID:                response.Data.RideID,
+				PickupCoordinate:      response.Data.PickupCoordinate,
+				DestinationCoordinate: response.Data.DestinationCoordinate,
+				Fare:                  response.Data.Fare,
+				Status:                newresp.Status,
+				Chair:                 response.Data.Chair,
+				CreatedAt:             response.Data.CreatedAt,
+				UpdateAt:              response.Data.UpdateAt,
+			}); err != nil {
+				writeError(w, http.StatusInternalServerError, err)
+				return
+			}
+		case <-r.Context().Done():
+			return
+		}
+	}
+}
+
+func appGetNotificationSendResponse(w http.ResponseWriter, f http.Flusher, response appGetNotificationResponseData) error {
+	fmt.Printf("appGetNotificationSendResponse: %#v\n", response)
+	data, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	data = []byte(fmt.Sprintf("data: %s\n\n", string(data)))
+	fmt.Printf("appGetNotificationSendResponse: %v\n", data)
+	_, err = w.Write(data)
+	if err != nil {
+		return err
+	}
+	f.Flush()
+	return err
+}
+
+func appGetNotificationPush(rideID string, status string) {
+	go func() {
+		fmt.Printf("appGetNotificationPush: rideID=%s, status=%s\n", rideID, status)
+		if chs, ok := appGetNotificationPollingIDs[rideID]; ok {
+			for _, ch := range chs {
+				ch <- RideStatus{
+					RideID: rideID,
+					Status: status,
+				}
+			}
+		}
+	}()
 }
 
 func getChairStats(ctx context.Context, tx *sqlx.Tx, chairID string) (appGetNotificationResponseChairStats, error) {

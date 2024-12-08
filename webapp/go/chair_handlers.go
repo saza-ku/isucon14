@@ -163,6 +163,7 @@ func chairPostCoordinateWorkerRunFunc(items []chairPostCoordinateItem) {
 			return
 		}
 		defer tx.Rollback()
+		statusNotify := ""
 		ride := &Ride{}
 		if err := tx.GetContext(ctx, ride, `SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1`, item.chair.ID); err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
@@ -181,6 +182,7 @@ func chairPostCoordinateWorkerRunFunc(items []chairPostCoordinateItem) {
 						slog.Error("chairPostCoordinate: failed to Insert ride_statuses", "error", err)
 						return
 					}
+					statusNotify = "PICKUP"
 				}
 
 				if item.coordinate.Latitude == ride.DestinationLatitude && item.coordinate.Longitude == ride.DestinationLongitude && status == "CARRYING" {
@@ -188,12 +190,16 @@ func chairPostCoordinateWorkerRunFunc(items []chairPostCoordinateItem) {
 						slog.Error("chairPostCoordinate: failed to Insert ride_statuses", "error", err)
 						return
 					}
+					statusNotify = "ARRIVED"
 				}
 			}
 		}
 		if err := tx.Commit(); err != nil {
 			slog.Error("chairPostCoordinate: failed to Commit", "error", err)
 			return
+		}
+		if len(statusNotify) > 0 {
+			appGetNotificationPush(ride.ID, statusNotify)
 		}
 	}
 }
@@ -335,6 +341,7 @@ func chairPostRideStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	statusNotify := ""
 	switch req.Status {
 	// Acknowledge the ride
 	case "ENROUTE":
@@ -342,6 +349,7 @@ func chairPostRideStatus(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
+		statusNotify = "ENROUTE"
 	// After Picking up user
 	case "CARRYING":
 		status, err := getLatestRideStatus(ctx, tx, ride.ID)
@@ -357,6 +365,7 @@ func chairPostRideStatus(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
+		statusNotify = "CARRYING"
 	default:
 		writeError(w, http.StatusBadRequest, errors.New("invalid status"))
 	}
@@ -364,6 +373,9 @@ func chairPostRideStatus(w http.ResponseWriter, r *http.Request) {
 	if err := tx.Commit(); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if len(statusNotify) > 0 {
+		appGetNotificationPush(ride.ID, statusNotify)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

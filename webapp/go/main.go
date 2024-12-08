@@ -79,6 +79,8 @@ func setup() http.Handler {
 	chairPostCoordinateWorker = util.NewWorker[chairPostCoordinateItem](chairPostCoordinateWorkerInterval)
 	go chairPostCoordinateWorker.Run(chairPostCoordinateWorkerRunFunc)
 
+	appGetNotificationPollingIDs = make(map[string][]chan RideStatus)
+
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
 	mux.Use(middleware.Recoverer)
