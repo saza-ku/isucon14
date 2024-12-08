@@ -24,9 +24,22 @@ var (
 	}
 
 	urlMatchingGroupsList = []string{
-		// "/api/hoge",
-		// "/api/fuga/.+",
-		// `/api/piyo/.+\.js`,
+		"/api/initialize",
+		"/api/app/users",
+		`/api/app/payment-methods`,
+		"/api/app/rides/estimated-fare",
+		"/api/app/rides/*/evaluation",
+		"/api/app/rides",
+		"/api/app/notification",
+		"/api/app/nearby-chairs",
+		"/api/owner/owners",
+		"/api/owner/sales",
+		"/api/owner/chairs",
+		"/api/chair/activity",
+		"/api/chair/coordinate",
+		"/api/chair/notification",
+		"/api/chair/rides/*/status",
+		"/api/internal/matching",
 	}
 
 	ignoreDirs = []string{
