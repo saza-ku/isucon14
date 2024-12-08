@@ -211,13 +211,17 @@ func appGetRides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := []getAppRidesResponseItem{}
+	rideIDs := make([]string, 0, len(rides))
 	for _, ride := range rides {
-		status, err := getLatestRideStatus(ctx, tx, ride.ID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		if status != "COMPLETED" {
+		rideIDs = append(rideIDs, ride.ID)
+	}
+	statuses, err := getLatestRideStatuses(ctx, tx, rideIDs, true)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	for _, ride := range rides {
+		if _, ok := statuses[ride.ID]; !ok {
 			continue
 		}
 
@@ -291,6 +295,34 @@ func getLatestRideStatus(ctx context.Context, tx executableGet, rideID string) (
 	return status, nil
 }
 
+type LatestRideStatus struct {
+	RideID string `db:"ride_id"`
+	Status string `db:"status"`
+}
+
+func getLatestRideStatuses(ctx context.Context, tx *sqlx.Tx, rideIDs []string, onlyCompleted bool) (map[string]string, error) {
+	if len(rideIDs) == 0 {
+		return map[string]string{}, nil
+	}
+	query := `SELECT ride_id, status FROM (SELECT ride_id, status, ROW_NUMBER() OVER (PARTITION BY ride_id ORDER BY created_at DESC) AS row_num FROM ride_statuses WHERE ride_id IN (?)) AS t WHERE row_num=1`
+	if onlyCompleted {
+		query += ` AND status="COMPLETED"`
+	}
+	query, args, err := sqlx.In(query, rideIDs)
+	if err != nil {
+		return nil, err
+	}
+	var res []LatestRideStatus
+	if err := tx.SelectContext(ctx, &res, query, args...); err != nil {
+		return nil, err
+	}
+	statuses := make(map[string]string)
+	for _, r := range res {
+		statuses[r.RideID] = r.Status
+	}
+	return statuses, nil
+}
+
 func appPostRides(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	req := &appPostRidesRequest{}
@@ -319,21 +351,27 @@ func appPostRides(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	continuingRideCount := 0
-	for _, ride := range rides {
-		status, err := getLatestRideStatus(ctx, tx, ride.ID)
+	if len(rides) > 0 {
+		rideIDs := make([]string, 0, len(rides))
+		for _, ride := range rides {
+			rideIDs = append(rideIDs, ride.ID)
+		}
+		query, args, err := sqlx.In(`SELECT count(*) FROM (SELECT ride_id, status, ROW_NUMBER() OVER (PARTITION BY ride_id ORDER BY created_at DESC) AS row_num FROM ride_statuses WHERE ride_id IN (?)) AS t WHERE row_num=1 AND status!="COMPLETED"`, rideIDs)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
-		if status != "COMPLETED" {
-			continuingRideCount++
+		continuingRideCount := 0
+		err = tx.GetContext(ctx, &continuingRideCount, query, args...)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
 		}
-	}
 
-	if continuingRideCount > 0 {
-		writeError(w, http.StatusConflict, errors.New("ride already exists"))
-		return
+		if continuingRideCount > 0 {
+			writeError(w, http.StatusConflict, errors.New("ride already exists"))
+			return
+		}
 	}
 
 	if _, err := tx.ExecContext(
@@ -895,12 +933,20 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		}
 
 		skip := false
+		rideIDs := make([]string, 0, len(rides))
+		for _, ride := range rides {
+			rideIDs = append(rideIDs, ride.ID)
+		}
+		statuses, err := getLatestRideStatuses(ctx, tx, rideIDs, false)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
 		for _, ride := range rides {
 			// 過去にライドが存在し、かつ、それが完了していない場合はスキップ
-			status, err := getLatestRideStatus(ctx, tx, ride.ID)
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, err)
-				return
+			status, ok := statuses[ride.ID]
+			if !ok {
+				continue
 			}
 			if status != "COMPLETED" {
 				skip = true
