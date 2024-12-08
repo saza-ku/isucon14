@@ -147,6 +147,7 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		"CREATE INDEX idx_ride_statuses_ride_id_chair_sent_at_created_at ON ride_statuses (ride_id, chair_sent_at, created_at)",
 		"CREATE INDEX idx_ride_statuses_ride_id_app_sent_at_created_at ON ride_statuses (ride_id, app_sent_at, created_at)",
 		"CREATE INDEX chair_locations_chair_id_created_at ON chair_locations (chair_id ASC, created_at DESC)",
+		"CREATE INDEX idx_rides_chair_id_updated_at ON rides (chair_id ASC, updated_at DESC)",
 	}
 	for _, q := range queries {
 		if err := util.CreateIndexIfNotExists(db, q); err != nil {
