@@ -1,0 +1,14 @@
+---
+
+- hosts: servers
+  gather_facts: false
+  become: true
+  roles:
+    - role: install
+
+- hosts: isucon2
+  gather_facts: false
+  become: true
+  roles:
+    - role: fetch
+

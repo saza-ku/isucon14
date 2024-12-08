@@ -1,0 +1,54 @@
+- name: Fetch webapp
+  ansible.posix.synchronize:
+    mode: pull
+    src: /home/isucon/webapp/
+    dest: ../../../../webapp/
+
+- name: Fetch etc/mysql
+  ansible.posix.synchronize:
+    mode: pull
+    src: /etc/mysql
+    dest: ../../../../etc/
+
+- name: Fetch etc/nginx
+  ansible.posix.synchronize:
+    mode: pull
+    src: /etc/nginx
+    dest: ../../../../etc/
+
+- name: Fetch etc/systemd/system
+  ansible.posix.synchronize:
+    mode: pull
+    src: /etc/systemd/system
+    dest: ../../../../etc
+
+- name: Fetch etc/sysctl.conf
+  ansible.posix.synchronize:
+    mode: pull
+    src: /etc/sysctl.conf
+    dest: ../../../../etc
+
+# - name: Fetch etc/sysctl.d
+#   ansible.posix.synchronize:
+#     mode: pull
+#     src: /etc/sysctl.d
+#     dest: ../../../../etc
+
+- name: Fetch etc/memcached.conf
+  ansible.posix.synchronize:
+    mode: pull
+    src: /etc/memcached.conf
+    dest: ../../../../etc
+  when: memcached is defined and memcached
+
+- name: Fetch env.sh
+  ansible.posix.synchronize:
+    mode: pull
+    src: /home/isucon/env.sh
+    dest: ../../../../
+
+- name: Fetch /etc/hosts
+  ansible.posix.synchronize:
+    mode: pull
+    src: /etc/hosts
+    dest: ../../../../etc

@@ -1,0 +1,29 @@
+---
+
+- name: Install alp
+  become: true
+  unarchive:
+    src: https://github.com/tkuchiki/alp/releases/download/v1.0.21/alp_linux_amd64.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes
+
+- name: Update apt repository
+  become: true
+  apt:
+    update_cache: yes
+
+- name: Install pt-query-digest
+  become: true
+  apt:
+    name: percona-toolkit
+
+- name: Install netdata
+  become: true
+  apt:
+    name: netdata
+
+- name: Install memcached
+  become: true
+  apt:
+    name: memcached
+  when: memcached is defined and memcached

@@ -1,0 +1,39 @@
+### 一人がやること
+- [ ] チェックリストを Issues に移す
+- [ ] [SETTINGS.md](./SETTINGS.md) に従って計測準備
+- [ ] pprof と fgprof をアプリケーションに入れる
+  - `go get github.com/felixge/fgprof`
+  - [このようにする](https://github.com/Saza-ku/isucon8-qualify/commit/4296a548288b9cd0ec4436d7449cd671addadb98)
+- [ ] 再起動試験対策に DB の接続を待つようにする
+  - [このようにする](https://zenn.dev/methane/articles/020f037513cd6b701aee)
+- [ ] 再起動試験対策のために webapp サービスに Restart=always を入れる
+- [ ] DB のバックアップ ([手順](https://qiita.com/iika0220/items/01d4b8bde4c06cf13fec))
+- [ ] 動いているプロセスを確認
+  - `sudo systemctl list-unit-files | grep enabled`
+- [ ] webapp のプロセスを Go 実装に切り替える
+- [ ] ミドルウェアの種類とバージョンを確認する
+- [ ] テーブル容量等を調べる
+  - `SELECT table_name, engine, table_rows, avg_row_length, floor((data_length+index_length)/1024/1024) as allMB, floor((data_length)/1024/1024) as dMB, floor((index_length)/1024/1024) as iMB FROM information_schema.tables WHERE table_schema=database() ORDER BY (data_length+index_length) DESC;`
+- [ ] データベースの初期化方法を確認する
+  - テーブルごと作り直すのか
+  - 不要なデータの削除だけなのか
+- [ ] サーバーのスペックを確認
+  - `cat /etc/issue`
+  - `cat /proc/cpuinfo`
+  - `cat /proc/meminfo`
+  - `df -h`
+- [ ] レギュレーションにより変えてはいけないファイルを確認する
+- [ ] SQL に、どのエンドポイントから叩かれているかをコメントで残す (余裕があれば)
+- [ ] [sqlstr](https://github.com/tenntenn/isucontools/tree/master/cmd/sqlstr) でソースコードからクエリ一覧を取得する
+- [ ] [goone](https://github.com/masibw/goone) でソースコードから N+1 を検出する
+- [ ] 余裕があれば、[measure](https://github.com/najeira/measure) を入れる
+  - [ ] [measuregen](https://github.com/tenntenn/isucontools/tree/master/cmd/measuregen) で入れる
+  - [ ] エンドポイントを設定
+  - [ ] /initialize で Reset するようにする 
+- [ ] ブラウザでアプリケーションにアクセスできることを確認する
+- [ ] ベンチマークを回し、初期スコアを Issues に貼る
+
+### みんながやること
+- [ ] ローカルで .ssh/config を設定する
+- [ ] ssh できることを確認
+- [ ] レポジトリを clone する

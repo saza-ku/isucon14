@@ -1,0 +1,4 @@
+---
+ansible_host: isucon3
+netdata_port: 19993
+main_server: false

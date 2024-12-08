@@ -1,0 +1,167 @@
+---
+
+- name: Deploy app
+  ansible.posix.synchronize:
+    src: ../../../../webapp/
+    dest: /home/isucon/webapp
+    mode: push
+    delete: false
+
+- name: Deploy mysql config
+  ansible.posix.synchronize:
+    src: ../../../../etc/mysql/
+    dest: /etc/mysql
+    mode: push
+    delete: false
+
+- name: Deploy nginx config
+  ansible.posix.synchronize:
+    src: ../../../../etc/nginx/
+    dest: /etc/nginx
+    mode: push
+    delete: false
+
+- name: Deploy systemd config
+  ansible.posix.synchronize:
+    src: ../../../../etc/system/
+    dest: /etc/systemd/system
+    mode: push
+
+- name: Deploy env.sh
+  ansible.posix.synchronize:
+    src: ../../../../env.sh
+    dest: /home/isucon/env.sh
+    mode: push
+    delete: false
+
+- name: Deploy /etc/hosts
+  ansible.posix.synchronize:
+    src: ../../../../etc/hosts
+    dest: /etc/hosts
+    mode: push
+    delete: false
+
+- name: Deploy etc/sysctl.conf
+  ansible.posix.synchronize:
+    src: ../../../../etc/sysctl.conf
+    dest: /etc/sysctl.conf
+    mode: push
+
+# - name: Deploy etc/sysctl.d
+#   ansible.posix.synchronize:
+#     src: ../../../../etc/sysctl.d
+#     dest: /etc/sysctl.d
+#     mode: push
+
+- name: Deploy etc/memcached.conf
+  ansible.posix.synchronize:
+    src: ../../../../etc/memcached.conf
+    dest: /etc/memcached.conf
+    mode: push
+  when: memcached is defined and memcached
+
+- name: Deploy scripts
+  ansible.posix.synchronize:
+    src: ../../../../scripts
+    dest: /home/isucon/
+    mode: push
+    delete: false
+
+- name: Deploy restart.sh
+  template:
+    src: ../../../../scripts/restart.sh
+    dest: /home/isucon/scripts/restart.sh
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Deploy measure.sh
+  template:
+    src: ../../../../scripts/measure.sh
+    dest: /home/isucon/scripts/measure.sh
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Fix owner of webapp
+  become: true
+  file:
+    path: /home/isucon/webapp
+    owner: isucon
+    group: isucon
+    recurse: yes
+
+- name: Fix owner of mysql config
+  become: true
+  file:
+    path: /etc/mysql
+    owner: root
+    group: root
+    recurse: yes
+
+- name: Fix owner of nginx config
+  become: true
+  file:
+    path: /etc/nginx
+    owner: root
+    group: root
+    recurse: yes
+
+- name: Fix owner of env.sh
+  become: true
+  file:
+    path: /home/isucon/env.sh
+    owner: isucon
+    group: isucon
+
+- name: Fix owner of scripts
+  become: true
+  file:
+    path: /home/isucon/scripts
+    owner: isucon
+    group: isucon
+    recurse: yes
+
+- name: Fix owner of /etc/sysctl.conf
+  become: true
+  file:
+    path: /etc/sysctl.conf
+    owner: root
+    group: root
+
+# - name: Fix owner of /etc/sysctl.d
+#   become: true
+#   file:
+#     path: /etc/sysctl.d
+#     owner: root
+#     group: root
+#     recurse: yes
+
+- name: Restart app
+  become: true
+  systemd:
+    name: "{{ app_service_name }}"
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart mysql
+  become: true
+  systemd:
+    name: mysql.service
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart nginx
+  become: true
+  systemd:
+    name: nginx.service
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart memcached
+  become: true
+  systemd:
+    name: memcached.service
+    state: restarted
+    daemon_reload: yes
+  when: memcached is defined and memcached
