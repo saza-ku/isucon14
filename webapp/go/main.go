@@ -176,6 +176,13 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	chairsForMatchingMu1.Lock()
+	chairsForMatchingMu2.Lock()
+	chairsForMatching1 = map[string]*ChairWithSpeed{}
+	chairsForMatching2 = map[string]*ChairWithSpeed{}
+	chairsForMatchingMu1.Unlock()
+	chairsForMatchingMu2.Unlock()
+
 	chairIDs := []string{}
 	if err := db.SelectContext(ctx, &chairIDs, "SELECT DISTINCT chair_id FROM chair_locations"); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
