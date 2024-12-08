@@ -145,6 +145,7 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_created_at ON ride_statuses (ride_id ASC, created_at DESC)")
 	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_chair_sent_at_created_at ON ride_statuses (ride_id, chair_sent_at, created_at)")
 	util.CreateIndexIfNotExists(db, "CREATE INDEX idx_ride_statuses_ride_id_app_sent_at_created_at ON ride_statuses (ride_id, app_sent_at, created_at)")
+	util.CreateIndexIfNotExists(db, "CREATE INDEX chair_locations_chair_id_created_at ON chair_locations (chair_id ASC, created_at DESC)")
 
 	writeJSON(w, http.StatusOK, postInitializeResponse{Language: "go"})
 }
