@@ -191,7 +191,7 @@ type Coordinate struct {
 }
 
 type Distance struct {
-	ChairID                string    `db:"chairs_id"`
+	ChairID                string    `db:"chair_id"`
 	TotalDistance          int       `db:"total_distance"`
 	TotalDistanceUpdatedAt time.Time `db:"total_distance_updated_at"`
 }
