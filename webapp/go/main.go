@@ -23,8 +23,10 @@ import (
 
 var db *sqlx.DB
 var distanceWorker *util.Worker[string]
+var chairPostCoordinateWorker *util.Worker[chairPostCoordinateItem]
 
-const distanceWorkerInterval = 2500 * time.Millisecond
+const distanceWorkerInterval = 2000 * time.Millisecond
+const chairPostCoordinateWorkerInterval = 2000 * time.Millisecond
 
 func main() {
 	mux := setup()
@@ -74,6 +76,8 @@ func setup() http.Handler {
 
 	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
 	go distanceWorker.Run(distanceWorkerRunFunc)
+	chairPostCoordinateWorker = util.NewWorker[chairPostCoordinateItem](chairPostCoordinateWorkerInterval)
+	go chairPostCoordinateWorker.Run(chairPostCoordinateWorkerRunFunc)
 
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
@@ -142,6 +146,9 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 	distanceWorker.Close()
 	distanceWorker = util.NewWorker[string](distanceWorkerInterval)
 	go distanceWorker.Run(distanceWorkerRunFunc)
+	chairPostCoordinateWorker.Close()
+	chairPostCoordinateWorker = util.NewWorker[chairPostCoordinateItem](chairPostCoordinateWorkerInterval)
+	go chairPostCoordinateWorker.Run(chairPostCoordinateWorkerRunFunc)
 
 	if out, err := exec.Command("../sql/init.sh").CombinedOutput(); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to initialize: %s: %w", string(out), err))

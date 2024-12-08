@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/oklog/ulid/v2"
@@ -103,6 +105,7 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chair := ctx.Value("chair").(*Chair)
+	chairLocationID := ulid.Make().String()
 
 	tx, err := db.Beginx()
 	if err != nil {
@@ -111,7 +114,6 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	chairLocationID := ulid.Make().String()
 	if _, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)`,
@@ -121,41 +123,10 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	distanceWorker.Send(chair.ID)
-
 	location := &ChairLocation{}
 	if err := tx.GetContext(ctx, location, `SELECT * FROM chair_locations WHERE id = ?`, chairLocationID); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
-	}
-
-	ride := &Ride{}
-	if err := tx.GetContext(ctx, ride, `SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1`, chair.ID); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-	} else {
-		status, err := getLatestRideStatus(ctx, tx, ride.ID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		if status != "COMPLETED" && status != "CANCELED" {
-			if req.Latitude == ride.PickupLatitude && req.Longitude == ride.PickupLongitude && status == "ENROUTE" {
-				if _, err := tx.ExecContext(ctx, "INSERT INTO ride_statuses (id, ride_id, status) VALUES (?, ?, ?)", ulid.Make().String(), ride.ID, "PICKUP"); err != nil {
-					writeError(w, http.StatusInternalServerError, err)
-					return
-				}
-			}
-
-			if req.Latitude == ride.DestinationLatitude && req.Longitude == ride.DestinationLongitude && status == "CARRYING" {
-				if _, err := tx.ExecContext(ctx, "INSERT INTO ride_statuses (id, ride_id, status) VALUES (?, ?, ?)", ulid.Make().String(), ride.ID, "ARRIVED"); err != nil {
-					writeError(w, http.StatusInternalServerError, err)
-					return
-				}
-			}
-		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -163,9 +134,68 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	chairPostCoordinateWorker.Send(chairPostCoordinateItem{
+		chairLocationID: chairLocationID,
+		chair:           *chair,
+		coordinate:      *req,
+	})
+	distanceWorker.Send(chair.ID)
+
 	writeJSON(w, http.StatusOK, &chairPostCoordinateResponse{
 		RecordedAt: location.CreatedAt.UnixMilli(),
 	})
+}
+
+type chairPostCoordinateItem struct {
+	chairLocationID string
+	chair           Chair
+	coordinate      Coordinate
+}
+
+func chairPostCoordinateWorkerRunFunc(items []chairPostCoordinateItem) {
+	ctx := context.Background()
+
+	for _, item := range items {
+
+		tx, err := db.Beginx()
+		if err != nil {
+			slog.Error("chairPostCoordinate: failed to BeginTx", "error", err)
+			return
+		}
+		defer tx.Rollback()
+		ride := &Ride{}
+		if err := tx.GetContext(ctx, ride, `SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1`, item.chair.ID); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				slog.Error("chairPostCoordinate: failed to Get rides", "error", err)
+				return
+			}
+		} else {
+			status, err := getLatestRideStatus(ctx, tx, ride.ID)
+			if err != nil {
+				slog.Error("chairPostCoordinate: failed to Get latest ride status", "error", err)
+				return
+			}
+			if status != "COMPLETED" && status != "CANCELED" {
+				if item.coordinate.Latitude == ride.PickupLatitude && item.coordinate.Longitude == ride.PickupLongitude && status == "ENROUTE" {
+					if _, err := tx.ExecContext(ctx, "INSERT INTO ride_statuses (id, ride_id, status) VALUES (?, ?, ?)", ulid.Make().String(), ride.ID, "PICKUP"); err != nil {
+						slog.Error("chairPostCoordinate: failed to Insert ride_statuses", "error", err)
+						return
+					}
+				}
+
+				if item.coordinate.Latitude == ride.DestinationLatitude && item.coordinate.Longitude == ride.DestinationLongitude && status == "CARRYING" {
+					if _, err := tx.ExecContext(ctx, "INSERT INTO ride_statuses (id, ride_id, status) VALUES (?, ?, ?)", ulid.Make().String(), ride.ID, "ARRIVED"); err != nil {
+						slog.Error("chairPostCoordinate: failed to Insert ride_statuses", "error", err)
+						return
+					}
+				}
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			slog.Error("chairPostCoordinate: failed to Commit", "error", err)
+			return
+		}
+	}
 }
 
 type simpleUser struct {
