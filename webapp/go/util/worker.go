@@ -62,5 +62,3 @@ func (w *Worker[T]) Run(fun func([]T)) {
 		}
 	}
 }
-
-

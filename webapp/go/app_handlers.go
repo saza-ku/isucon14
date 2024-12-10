@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -334,6 +335,8 @@ func appPostRides(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("required fields(pickup_coordinate, destination_coordinate) are empty"))
 		return
 	}
+
+	fmt.Printf("post rides %d, %d\n", req.PickupCoordinate, req.DestinationCoordinate)
 
 	user := ctx.Value("user").(*User)
 	rideID := ulid.Make().String()
@@ -711,7 +714,7 @@ func appGetNotification(w http.ResponseWriter, r *http.Request) {
 	if err := tx.GetContext(ctx, ride, `SELECT * FROM rides WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`, user.ID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusOK, &appGetNotificationResponse{
-				RetryAfterMs: 3000,
+				RetryAfterMs: 100,
 			})
 			return
 		}
@@ -758,7 +761,7 @@ func appGetNotification(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: ride.CreatedAt.UnixMilli(),
 			UpdateAt:  ride.UpdatedAt.UnixMilli(),
 		},
-		RetryAfterMs: 3000,
+		RetryAfterMs: 100,
 	}
 
 	if ride.ChairID.Valid {
@@ -878,6 +881,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("latitude or longitude is empty"))
 		return
 	}
+	fmt.Printf("nearby: %s %s, %s\n", latStr, lonStr, distanceStr)
 
 	lat, err := strconv.Atoi(latStr)
 	if err != nil {
@@ -900,12 +904,37 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	coordinate := Coordinate{Latitude: lat, Longitude: lon}
-
-	tx, err := db.Beginx()
+	nearbyChairs, chairsForCache, err := getNearbyChairs(ctx, db, Coordinate{Latitude: lat, Longitude: lon}, distance)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	coordinate := Coordinate{Latitude: lat, Longitude: lon}
+
+	setChairCacheForMatching(coordinate, chairsForCache)
+
+	retrievedAt := &time.Time{}
+	err = db.GetContext(
+		ctx,
+		retrievedAt,
+		`SELECT CURRENT_TIMESTAMP(6)`,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, &appGetNearbyChairsResponse{
+		Chairs:      nearbyChairs,
+		RetrievedAt: retrievedAt.UnixMilli(),
+	})
+}
+
+func getNearbyChairs(ctx context.Context, db *sqlx.DB, coordinate Coordinate, distance int) ([]appGetNearbyChairsResponseChair, []Chair, error) {
+	tx, err := db.Beginx()
+	if err != nil {
+		return nil, nil, err
 	}
 	defer tx.Rollback()
 
@@ -916,11 +945,11 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		`SELECT * FROM chairs`,
 	)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
+		return nil, nil, err
 	}
 
 	nearbyChairs := []appGetNearbyChairsResponseChair{}
+	chairsForCache := []Chair{}
 	for _, chair := range chairs {
 		if !chair.IsActive {
 			continue
@@ -928,8 +957,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 
 		rides := []*Ride{}
 		if err := tx.SelectContext(ctx, &rides, `SELECT * FROM rides WHERE chair_id = ? ORDER BY created_at DESC`, chair.ID); err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
+			return nil, nil, err
 		}
 
 		skip := false
@@ -939,8 +967,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 		}
 		statuses, err := getLatestRideStatuses(ctx, tx, rideIDs, false)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
+			return nil, nil, err
 		}
 		for _, ride := range rides {
 			// 過去にライドが存在し、かつ、それが完了していない場合はスキップ
@@ -969,8 +996,7 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
-			writeError(w, http.StatusInternalServerError, err)
-			return
+			return nil, nil, err
 		}
 
 		if calculateDistance(coordinate.Latitude, coordinate.Longitude, chairLocation.Latitude, chairLocation.Longitude) <= distance {
@@ -983,24 +1009,93 @@ func appGetNearbyChairs(w http.ResponseWriter, r *http.Request) {
 					Longitude: chairLocation.Longitude,
 				},
 			})
+
+			chairsForCache = append(chairs, chair)
 		}
 	}
 
-	retrievedAt := &time.Time{}
-	err = tx.GetContext(
-		ctx,
-		retrievedAt,
-		`SELECT CURRENT_TIMESTAMP(6)`,
-	)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
+	return nearbyChairs, chairsForCache, nil
+}
+
+var masterChairModels = map[string]ChairModel{
+	"リラックスシート NEO":      {Speed: 2, Name: "リラックスシート NEO"},
+	"エアシェル ライト":         {Speed: 2, Name: "エアシェル ライト"},
+	"チェアエース S":          {Speed: 2, Name: "チェアエース S"},
+	"スピンフレーム 01":        {Speed: 2, Name: "スピンフレーム 01"},
+	"ベーシックスツール プラス":     {Speed: 2, Name: "ベーシックスツール プラス"},
+	"SitEase":           {Speed: 2, Name: "SitEase"},
+	"ComfortBasic":      {Speed: 2, Name: "ComfortBasic"},
+	"EasySit":           {Speed: 2, Name: "EasySit"},
+	"LiteLine":          {Speed: 2, Name: "LiteLine"},
+	"リラックス座":            {Speed: 2, Name: "リラックス座"},
+	"エルゴクレスト II":        {Speed: 3, Name: "エルゴクレスト II"},
+	"フォームライン RX":        {Speed: 3, Name: "フォームライン RX"},
+	"シェルシート ハイブリッド":     {Speed: 3, Name: "シェルシート ハイブリッド"},
+	"リカーブチェア スマート":      {Speed: 3, Name: "リカーブチェア スマート"},
+	"フレックスコンフォート PRO":   {Speed: 3, Name: "フレックスコンフォート PRO"},
+	"ErgoFlex":          {Speed: 3, Name: "ErgoFlex"},
+	"BalancePro":        {Speed: 3, Name: "BalancePro"},
+	"StyleSit":          {Speed: 3, Name: "StyleSit"},
+	"風雅（ふうが）チェア":        {Speed: 3, Name: "風雅（ふうが）チェア"},
+	"AeroSeat":          {Speed: 3, Name: "AeroSeat"},
+	"ゲーミングシート NEXUS":    {Speed: 3, Name: "ゲーミングシート NEXUS"},
+	"プレイスタイル Z":         {Speed: 3, Name: "プレイスタイル Z"},
+	"ストリームギア S1":        {Speed: 3, Name: "ストリームギア S1"},
+	"クエストチェア Lite":      {Speed: 3, Name: "クエストチェア Lite"},
+	"エアフロー EZ":          {Speed: 3, Name: "エアフロー EZ"},
+	"アルティマシート X":        {Speed: 5, Name: "アルティマシート X"},
+	"ゼンバランス EX":         {Speed: 5, Name: "ゼンバランス EX"},
+	"プレミアムエアチェア ZETA":   {Speed: 5, Name: "プレミアムエアチェア ZETA"},
+	"モーションチェア RISE":     {Speed: 5, Name: "モーションチェア RISE"},
+	"インペリアルクラフト LUXE":   {Speed: 5, Name: "インペリアルクラフト LUXE"},
+	"LuxeThrone":        {Speed: 5, Name: "LuxeThrone"},
+	"ZenComfort":        {Speed: 5, Name: "ZenComfort"},
+	"Infinity Seat":     {Speed: 5, Name: "Infinity Seat"},
+	"雅楽座":               {Speed: 5, Name: "雅楽座"},
+	"Titanium Line":     {Speed: 5, Name: "Titanium Line"},
+	"プロゲーマーエッジ X1":      {Speed: 5, Name: "プロゲーマーエッジ X1"},
+	"スリムライン GX":         {Speed: 5, Name: "スリムライン GX"},
+	"フューチャーチェア CORE":    {Speed: 5, Name: "フューチャーチェア CORE"},
+	"シャドウバースト M":        {Speed: 5, Name: "シャドウバースト M"},
+	"ステルスシート ROGUE":     {Speed: 5, Name: "ステルスシート ROGUE"},
+	"ナイトシート ブラックエディション": {Speed: 7, Name: "ナイトシート ブラックエディション"},
+	"フューチャーステップ VISION": {Speed: 7, Name: "フューチャーステップ VISION"},
+	"匠座 PRO LIMITED":    {Speed: 7, Name: "匠座 PRO LIMITED"},
+	"ルミナスエアクラウン":        {Speed: 7, Name: "ルミナスエアクラウン"},
+	"エコシート リジェネレイト":     {Speed: 7, Name: "エコシート リジェネレイト"},
+	"ShadowEdition":     {Speed: 7, Name: "ShadowEdition"},
+	"Phoenix Ultra":     {Speed: 7, Name: "Phoenix Ultra"},
+	"匠座（たくみざ）プレミアム":     {Speed: 7, Name: "匠座（たくみざ）プレミアム"},
+	"Aurora Glow":       {Speed: 7, Name: "Aurora Glow"},
+	"Legacy Chair":      {Speed: 7, Name: "Legacy Chair"},
+	"インフィニティ GEAR V":    {Speed: 7, Name: "インフィニティ GEAR V"},
+	"ゼノバース ALPHA":       {Speed: 7, Name: "ゼノバース ALPHA"},
+	"タイタンフレーム ULTRA":    {Speed: 7, Name: "タイタンフレーム ULTRA"},
+	"ヴァーチェア SUPREME":    {Speed: 7, Name: "ヴァーチェア SUPREME"},
+	"オブシディアン PRIME":     {Speed: 7, Name: "オブシディアン PRIME"},
+}
+
+func setChairCacheForMatching(coordinate Coordinate, chairs []Chair) error {
+	chairWithSpeeds := []*ChairWithSpeed{}
+	for _, chair := range chairs {
+		if chair.IsActive {
+			c := ChairWithSpeed{
+				ID: chair.ID,
+			}
+
+			if model, ok := masterChairModels[chair.Model]; ok {
+				c.Speed = model.Speed
+			} else {
+				c.Speed = 0
+			}
+
+			chairWithSpeeds = append(chairWithSpeeds, &c)
+		}
 	}
 
-	writeJSON(w, http.StatusOK, &appGetNearbyChairsResponse{
-		Chairs:      nearbyChairs,
-		RetrievedAt: retrievedAt.UnixMilli(),
-	})
+	setNearbyChairs(coordinate, chairWithSpeeds)
+
+	return nil
 }
 
 func calculateFare(pickupLatitude, pickupLongitude, destLatitude, destLongitude int) int {

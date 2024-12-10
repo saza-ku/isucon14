@@ -1,0 +1,1 @@
+ALTER TABLE chairs ADD COLUMN is_empty TINYINT(1) NOT NULL DEFAULT 1 COMMENT '椅子が空席かどうか';
